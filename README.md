@@ -13,4 +13,7 @@
   2. Added proper looging for all newly implemented requirements
   3. Added updateAccount feature at repository service
 
-
+# Further Action
+  1. Swagger documentation should be added
+  2. Logger should be added for existing feature
+  3. Javadoc need to be improvised
