@@ -168,7 +168,7 @@ class AccountsServiceTest {
 	}
 
 	/**
-	 * Thread safety test with multiple account request This test will hit 5
+	 * Thread safety test with multiple account request. This test will hit 5
 	 * concurrent request for fund transfer, if the service method
 	 * "accountsService.transferAmount" is not synchronized then test will fail else
 	 * pass
