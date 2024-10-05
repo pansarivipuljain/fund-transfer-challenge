@@ -1,17 +1,14 @@
 package com.dws.challenge.repository;
 
-import com.dws.challenge.domain.Account;
-import com.dws.challenge.domain.Transaction;
-import com.dws.challenge.exception.AccountNotExistsException;
-import com.dws.challenge.exception.DuplicateAccountIdException;
-import com.dws.challenge.exception.InsufficientBalanceException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.util.ObjectUtils;
 
-import java.math.BigDecimal;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.dws.challenge.domain.Account;
+import com.dws.challenge.exception.AccountNotExistsException;
+import com.dws.challenge.exception.DuplicateAccountIdException;
 
 @Repository
 public class AccountsRepositoryInMemory implements AccountsRepository {
@@ -30,7 +27,7 @@ public class AccountsRepositoryInMemory implements AccountsRepository {
 	public Account getAccount(String accountId) {
 		Account account = accounts.get(accountId);
 		if (ObjectUtils.isEmpty(account)) {
-			throw new AccountNotExistsException("Account id "+ accountId + " does not exist");
+			throw new AccountNotExistsException("Account id " + accountId + " does not exist");
 		}
 
 		return accounts.get(accountId);

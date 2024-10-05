@@ -1,4 +1,4 @@
-package com.dws.challenge;
+package com.dws.challenge.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,7 +43,7 @@ class AccountsControllerTest {
 
 	@Autowired
 	private AccountsService accountsService;
-	
+
 	@MockBean
 	NotificationService notificationService;
 
@@ -116,11 +116,12 @@ class AccountsControllerTest {
 		this.mockMvc.perform(get("/v1/accounts/" + uniqueAccountId)).andExpect(status().isOk())
 				.andExpect(content().string("{\"accountId\":\"" + uniqueAccountId + "\",\"balance\":123.45}"));
 	}
-	
+
 	@Test
 	void getAccountDoesNotExist() throws Exception {
 		String uniqueAccountId = "Id-" + System.currentTimeMillis();
-		this.mockMvc.perform(get("/v1/accounts/" + uniqueAccountId)).andExpect(status().isBadRequest());	}
+		this.mockMvc.perform(get("/v1/accounts/" + uniqueAccountId)).andExpect(status().isBadRequest());
+	}
 
 	@Test
 	void transferAmountSuccess() throws Exception {
@@ -128,7 +129,7 @@ class AccountsControllerTest {
 				.content("{\"accountId\":\"Id-123\",\"balance\":2000}")).andExpect(status().isCreated());
 		this.mockMvc.perform(post("/v1/accounts").contentType(MediaType.APPLICATION_JSON)
 				.content("{\"accountId\":\"Id-124\",\"balance\":10}")).andExpect(status().isCreated());
-		// Mocking notificationService 
+		// Mocking notificationService
 		doNothing().when(notificationService).notifyAboutTransfer(any(), any());
 		this.mockMvc
 				.perform(post("/v1/accounts/fundTransfer").contentType(MediaType.APPLICATION_JSON)
@@ -152,4 +153,23 @@ class AccountsControllerTest {
 				.andExpect(status().isBadRequest());
 	}
 
+	@Test
+	void transferAmountWithinSameAccount() throws Exception {
+		this.mockMvc
+				.perform(post("/v1/accounts/fundTransfer").contentType(MediaType.APPLICATION_JSON)
+						.content("{\"accountFrom\":\"Id-123\",\"accountTo\":\"Id-123\",\"amount\":\"1000\"}"))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void transferAmountOverdraft() throws Exception {
+		this.mockMvc.perform(post("/v1/accounts").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"accountId\":\"Id-123\",\"balance\":2000}")).andExpect(status().isCreated());
+		this.mockMvc.perform(post("/v1/accounts").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"accountId\":\"Id-124\",\"balance\":10}")).andExpect(status().isCreated());
+		this.mockMvc
+				.perform(post("/v1/accounts/fundTransfer").contentType(MediaType.APPLICATION_JSON)
+						.content("{\"accountFrom\":\"Id-123\",\"accountTo\":\"Id-124\",\"amount\":\"4000\"}"))
+				.andExpect(status().isBadRequest());
+	}
 }

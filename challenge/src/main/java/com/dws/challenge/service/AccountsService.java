@@ -43,10 +43,15 @@ public class AccountsService {
 	 * 
 	 * @param transaction
 	 */
-	public synchronized void transferAmount(Transaction transaction) {
-		Account fromAccount = this.accountsRepository.getAccount(transaction.getAccountFrom());
-		Account toAccount = this.accountsRepository.getAccount(transaction.getAccountTo());
+	public void transferAmount(Transaction transaction) {
 
+		if (transaction.getAccountTo().equals(transaction.getAccountFrom())) {
+			throw new IllegalArgumentException("To and From account should not be same!");
+		}
+
+		log.info("transfer amount : {}", transaction.getAmount());
+		Account fromAccount = this.accountsRepository.getAccount(transaction.getAccountFrom()); // 990
+		Account toAccount = this.accountsRepository.getAccount(transaction.getAccountTo()); // 20
 		if (ObjectUtils.isEmpty(fromAccount)) {
 			throw new AccountNotExistsException("From Account not found");
 		}
@@ -55,29 +60,34 @@ public class AccountsService {
 			throw new AccountNotExistsException("To Account not found");
 		}
 
-		BigDecimal fromAccountBalance = fromAccount.getBalance();
-		BigDecimal toAccountBalance = toAccount.getBalance();
+		synchronized (fromAccount) {
+			synchronized (toAccount) {
+				BigDecimal fromAccountBalance = fromAccount.getBalance();
+				BigDecimal toAccountBalance = toAccount.getBalance();
 
-		if (fromAccountBalance.compareTo(BigDecimal.ZERO) == 1
-				&& fromAccountBalance.compareTo(transaction.getAmount()) == 1) {
+				// From Account Balance should be greater than amount to be transfer,
+				// so that does not end up with negative balance
+				if (fromAccountBalance.compareTo(transaction.getAmount()) == 1) {
 
-			// Debit amount
-			fromAccount.setBalance(fromAccountBalance.subtract(transaction.getAmount()));
-			this.accountsRepository.updateAccount(fromAccount);
-			log.info("updated balance for fromAccount : {}", fromAccount.getBalance());
+					// Debit amount
+					fromAccount.setBalance(fromAccountBalance.subtract(transaction.getAmount()));
+					this.accountsRepository.updateAccount(fromAccount);
+					log.info("updated balance for fromAccount {} : {}", fromAccount.getAccountId(),
+							fromAccount.getBalance());
 
-			// Credit amount
-			toAccount.setBalance(toAccountBalance.add(transaction.getAmount()));
-			this.accountsRepository.updateAccount(toAccount);
-			log.info("updated balance for toAccount : {}", toAccount.getBalance());
+					// Credit amount
+					toAccount.setBalance(toAccountBalance.add(transaction.getAmount()));
+					this.accountsRepository.updateAccount(toAccount);
+					log.info("updated balance for toAccount {} : {}", toAccount.getAccountId(), toAccount.getBalance());
 
+					// send notification
+					log.info("Sending mail to both account holder ...");
+					sendNotification(transaction, fromAccount, toAccount);
 
-			// send notification
-			log.info("Sending mail to both account holder ...");
-			sendNotification(transaction, fromAccount, toAccount);
-
-		} else {
-			throw new InsufficientBalanceException("Insufficient balance!");
+				} else {
+					throw new InsufficientBalanceException("Insufficient balance!");
+				}
+			}
 		}
 	}
 
