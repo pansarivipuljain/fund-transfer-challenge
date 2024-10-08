@@ -168,7 +168,7 @@ class AccountsServiceTest {
 	}
 
 	/**
-	 * Thread safety test with multiple account request. This test will hit 5
+	 * Thread safety test with multiple account request This test will hit 5
 	 * concurrent request for fund transfer, if the service method
 	 * "accountsService.transferAmount" is not synchronized then test will fail else
 	 * pass
@@ -245,7 +245,7 @@ class AccountsServiceTest {
 		assertThat(this.accountsService.getAccount("Id-125A").getBalance())
 				.isEqualTo(currentBalanceAccountA.subtract(new BigDecimal(amountTransferred)));
 
-		// Checking total amount correctly transferred to "toAccount" holder in
+		// Checking total amount correctly transferred to "toAccountt" holder in
 		// concurrent requests
 		assertThat(this.accountsService.getAccount("Id-125B").getBalance())
 				.isEqualTo(currentBalanceAccountB.add(new BigDecimal(amountTransferred)));
@@ -254,9 +254,72 @@ class AccountsServiceTest {
 		assertThat(this.accountsService.getAccount("Id-125C").getBalance())
 				.isEqualTo(currentBalanceAccountC.subtract(new BigDecimal(amountTransferred)));
 
-		// Checking total amount correctly transferred to "toAccount" holder in
+		// Checking total amount correctly transferred to "toAccountt" holder in
 		// concurrent requests
 		assertThat(this.accountsService.getAccount("Id-125D").getBalance())
 				.isEqualTo(currentBalanceAccountD.add(new BigDecimal(amountTransferred)));
+	}
+
+	@Test
+	void transferAmountTestDeadlock() throws Exception {
+		Account fromAccountA = new Account("Id-125A", new BigDecimal(5000));
+		this.accountsService.createAccount(fromAccountA);
+		Account toAccountB = new Account("Id-125B", new BigDecimal(1000));
+		this.accountsService.createAccount(toAccountB);
+
+		BigDecimal currentBalanceAccountA = fromAccountA.getBalance();
+		BigDecimal currentBalanceAccountB = toAccountB.getBalance();
+
+		log.info("fromAccount initial balance : {}", currentBalanceAccountA);
+		log.info("toAccount initial balance : {}", currentBalanceAccountB);
+
+		// Mocking notificationService
+		doNothing().when(notificationService).notifyAboutTransfer(any(), any());
+
+		// Thread Management using Executor service
+		ExecutorService executor = Executors.newFixedThreadPool(6);
+		CountDownLatch latch = new CountDownLatch(6);
+		for (int i = 0; i < 3; i++) {
+			Random randomNumber = new Random();
+			// Random number to generate in between 1 to 50
+			int number = randomNumber.nextInt(50) + 1;
+			executor.submit(() -> {
+				try {
+					Transaction transaction = new Transaction(fromAccountA.getAccountId(), toAccountB.getAccountId(),
+							new BigDecimal(number));
+					this.accountsService.transferAmount(transaction);
+				} catch (Exception e) {
+					e.printStackTrace();
+				} finally {
+					latch.countDown();
+				}
+			});
+
+			executor.submit(() -> {
+				try {
+					Transaction transaction = new Transaction(toAccountB.getAccountId(), fromAccountA.getAccountId(),
+							new BigDecimal(number));
+					this.accountsService.transferAmount(transaction);
+				} catch (Exception e) {
+					e.printStackTrace();
+				} finally {
+					latch.countDown();
+				}
+			});
+		}
+
+		// Wait for all threads to finish
+		latch.await();
+		executor.shutdown();
+
+		log.info("fromAccount updated balance : {}", this.accountsService.getAccount("Id-125A").getBalance());
+		log.info("toAccount updateed balance : {}", this.accountsService.getAccount("Id-125B").getBalance());
+
+		// Checking total amount debited from "fromAccount" in concurrent requests
+		assertThat(this.accountsService.getAccount("Id-125A").getBalance()).isEqualTo(currentBalanceAccountA);
+
+		// Checking total amount correctly transferred to "toAccountt" holder in
+		// concurrent requests
+		assertThat(this.accountsService.getAccount("Id-125B").getBalance()).isEqualTo(currentBalanceAccountB);
 	}
 }

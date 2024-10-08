@@ -60,8 +60,13 @@ public class AccountsService {
 			throw new AccountNotExistsException("To Account not found");
 		}
 
-		synchronized (fromAccount) {
-			synchronized (toAccount) {
+		// To avoid deadlock, lock should be acquired in order. This ordering we can
+		// achieve using hashcode
+		Account firstLock = fromAccount.hashCode() < toAccount.hashCode() ? fromAccount : toAccount;
+		Account secondLock = fromAccount.hashCode() < toAccount.hashCode() ? toAccount : fromAccount;
+
+		synchronized (firstLock) {
+			synchronized (secondLock) {
 				BigDecimal fromAccountBalance = fromAccount.getBalance();
 				BigDecimal toAccountBalance = toAccount.getBalance();
 
